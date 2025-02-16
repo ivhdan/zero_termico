@@ -7,7 +7,7 @@ import os
 import logging
 
 # Configurazione del logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Parametri configurabili
 URL = "https://www.nimbus.it/italiameteo/previpiemonte.htm"
@@ -45,6 +45,7 @@ def extract_zero_termico():
             
             if date_match:
                 current_date = f"{date_match.group(1)}/{date_match.group(2)}/{date_match.group(3)}"
+                logging.debug(f"Data trovata: {current_date}")
             
             zero_match = re.search(r'Zero gradi a (\d+)-(\d+)', text)
             
@@ -57,6 +58,7 @@ def extract_zero_termico():
                     'date': current_date,
                     'level': media_alt
                 })
+                logging.debug(f"Dati estratti: {current_date} - {media_alt}m")
         
         return data
     except requests.RequestException as e:
@@ -72,6 +74,7 @@ def generate_monthly_page(year, month, data):
                    'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
     
     month_name = month_names[month - 1]
+    logging.debug(f"Generazione pagina per {month_name} {year}")
     
     html_template = f'''
     <!DOCTYPE html>
@@ -109,6 +112,7 @@ def generate_monthly_page(year, month, data):
     
     with open(f'docs/{year}/{month_name.lower()}.html', 'w', encoding='utf-8') as f:
         f.write(html_template)
+    logging.debug(f"Pagina {month_name.lower()}.html creata con successo")
 
 def update_main_page(all_data):
     """Aggiorna la pagina principale con i link alle pagine mensili."""
