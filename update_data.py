@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 # Parametri configurabili
 URL = "https://www.nimbus.it/italiameteo/previpiemonte.htm"
-CSV_FILE_PATH = 'zero_termico_data.csv'
+CSV_FILE_PATH = 'docs/zero_termico_data.csv'
 
 def load_existing_data():
     """Carica i dati esistenti dal file CSV."""
