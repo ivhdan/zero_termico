@@ -24,6 +24,9 @@ def load_existing_data():
     except FileNotFoundError:
         logging.warning(f"File {CSV_FILE_PATH} non trovato, creando un nuovo DataFrame.")
         return pd.DataFrame(columns=['date', 'level', 'year', 'month'])
+    except Exception as e:
+        logging.error(f"Errore durante il caricamento dei dati esistenti: {e}")
+        return pd.DataFrame(columns=['date', 'level', 'year', 'month'])
 
 def extract_zero_termico():
     """Estrae i dati relativi allo zero termico dalla pagina web."""
