@@ -4,24 +4,32 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 import os
+import logging
+
+# Configurazione del logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Parametri configurabili
+URL = "https://www.nimbus.it/italiameteo/previpiemonte.htm"
+CSV_FILE_PATH = 'zero_termico_data.csv'
 
 def load_existing_data():
-    file_path = 'zero_termico_data.csv'
+    """Carica i dati esistenti dal file CSV."""
     try:
-        df = pd.read_csv(file_path)
-        # Estrai anno e mese dalla colonna date
+        df = pd.read_csv(CSV_FILE_PATH)
         df['date'] = pd.to_datetime(df['date'], format='%d/%B/%Y')
         df['year'] = df['date'].dt.year
         df['month'] = df['date'].dt.month
         return df
-    except:
+    except FileNotFoundError:
+        logging.warning(f"File {CSV_FILE_PATH} non trovato, creando un nuovo DataFrame.")
         return pd.DataFrame(columns=['date', 'level', 'year', 'month'])
 
 def extract_zero_termico():
-    url = "https://www.nimbus.it/italiameteo/previpiemonte.htm"
-    
+    """Estrae i dati relativi allo zero termico dalla pagina web."""
     try:
-        response = requests.get(url)
+        response = requests.get(URL)
+        response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         text_blocks = soup.find_all('p')
         
@@ -48,12 +56,15 @@ def extract_zero_termico():
                 })
         
         return data
-        
+    except requests.RequestException as e:
+        logging.error(f"Errore durante la richiesta HTTP: {e}")
+        return None
     except Exception as e:
-        print(f"Errore durante l'estrazione: {e}")
+        logging.error(f"Errore durante l'estrazione: {e}")
         return None
 
 def generate_monthly_page(year, month, data):
+    """Genera una pagina HTML mensile con i dati estratti."""
     month_names = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
                    'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
     
@@ -91,14 +102,13 @@ def generate_monthly_page(year, month, data):
     </html>
     '''
     
-    # Crea la directory se non esiste
     os.makedirs(f'docs/{year}', exist_ok=True)
     
-    # Salva la pagina
     with open(f'docs/{year}/{month_name.lower()}.html', 'w', encoding='utf-8') as f:
         f.write(html_template)
 
 def update_main_page(all_data):
+    """Aggiorna la pagina principale con i link alle pagine mensili."""
     years = sorted(all_data['year'].unique())
     
     html_content = '''
@@ -126,7 +136,7 @@ def update_main_page(all_data):
         '''
         
         month_names = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-                      'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+                       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
         
         for month in months:
             month_name = month_names[month - 1]
@@ -149,32 +159,27 @@ def update_main_page(all_data):
         f.write(html_content)
 
 def main():
-    print("Inizio aggiornamento dati zero termico...")
+    """Funzione principale per l'aggiornamento dei dati dello zero termico."""
+    logging.info("Inizio aggiornamento dati zero termico...")
     
-    # Carica dati esistenti
-    print("Caricamento dati esistenti...")
+    logging.info("Caricamento dati esistenti...")
     df_existing = load_existing_data()
     
-    # Estrai nuovi dati
-    print("Estrazione nuovi dati da Nimbus...")
+    logging.info("Estrazione nuovi dati da Nimbus...")
     new_data = extract_zero_termico()
     
     if new_data:
         df_new = pd.DataFrame(new_data)
         
-        # Combina e rimuovi duplicati
-        print("Aggiornamento dataset...")
+        logging.info("Aggiornamento dataset...")
         df_combined = pd.concat([df_existing, df_new]).drop_duplicates(subset=['date'])
         
-        # Ordina
         df_combined = df_combined.sort_values(['year', 'month', 'date'])
         
-        # Salva CSV principale
-        print("Salvataggio dati aggiornati...")
-        df_combined.to_csv('zero_termico_data.csv', index=False)
+        logging.info("Salvataggio dati aggiornati...")
+        df_combined.to_csv(CSV_FILE_PATH, index=False)
         
-        # Genera pagine mensili
-        print("Generazione pagine mensili...")
+        logging.info("Generazione pagine mensili...")
         for year in df_combined['year'].unique():
             for month in df_combined['month'].unique():
                 monthly_data = df_combined[
@@ -184,13 +189,12 @@ def main():
                 if not monthly_data.empty:
                     generate_monthly_page(year, month, monthly_data)
         
-        # Aggiorna pagina principale
-        print("Aggiornamento pagina principale...")
+        logging.info("Aggiornamento pagina principale...")
         update_main_page(df_combined)
         
-        print("Aggiornamento completato con successo!")
+        logging.info("Aggiornamento completato con successo!")
     else:
-        print("Nessun nuovo dato estratto.")
+        logging.warning("Nessun nuovo dato estratto.")
 
 if __name__ == "__main__":
     main()
