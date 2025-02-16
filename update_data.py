@@ -8,7 +8,12 @@ import os
 def load_existing_data():
     file_path = 'zero_termico_data.csv'
     try:
-        return pd.read_csv(file_path)
+        df = pd.read_csv(file_path)
+        # Estrai anno e mese dalla colonna date
+        df['date'] = pd.to_datetime(df['date'], format='%d/%B/%Y')
+        df['year'] = df['date'].dt.year
+        df['month'] = df['date'].dt.month
+        return df
     except:
         return pd.DataFrame(columns=['date', 'level', 'year', 'month'])
 
@@ -29,7 +34,6 @@ def extract_zero_termico():
             
             if date_match:
                 current_date = f"{date_match.group(1)}/{date_match.group(2)}/{date_match.group(3)}"
-                date_obj = datetime.strptime(current_date, '%d/%B/%Y')
             
             zero_match = re.search(r'Zero gradi a (\d+)-(\d+)', text)
             
@@ -40,9 +44,7 @@ def extract_zero_termico():
                 
                 data.append({
                     'date': current_date,
-                    'level': media_alt,
-                    'year': date_obj.year,
-                    'month': date_obj.month
+                    'level': media_alt
                 })
         
         return data
