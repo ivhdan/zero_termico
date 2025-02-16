@@ -1,9 +1,11 @@
 name: Update Zero Termico Data
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    - cron: '0 8 * * *'  # Esegue ogni giorno alle 8:00 UTC
-  workflow_dispatch:      # Permette l'esecuzione manuale
+    - cron: '0 8 * * *'
+  workflow_dispatch:
 
 jobs:
   update-data:
