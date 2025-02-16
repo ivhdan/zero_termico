@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 from datetime import datetime
+import os
 
 def load_existing_data():
     file_path = 'zero_termico_data.csv'
@@ -50,6 +51,101 @@ def extract_zero_termico():
         print(f"Errore durante l'estrazione: {e}")
         return None
 
+def generate_monthly_page(year, month, data):
+    month_names = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                   'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+    
+    month_name = month_names[month - 1]
+    
+    html_template = f'''
+    <!DOCTYPE html>
+    <html lang="it">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Zero Termico - {month_name} {year}</title>
+        <link rel="stylesheet" href="../css/style.css">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Zero Termico - {month_name} {year}</h1>
+            <div class="chart-container">
+                <canvas id="monthChart"></canvas>
+            </div>
+            <div class="navigation">
+                <a href="../temp_graph.html">Torna all'indice</a>
+            </div>
+        </div>
+        <script src="../js/charts.js"></script>
+        <script>
+            const data = {data.to_json(orient='records')};
+            createMonthlyChart('monthChart', {{
+                dates: data.map(d => d.date),
+                levels: data.map(d => d.level)
+            }});
+        </script>
+    </body>
+    </html>
+    '''
+    
+    # Crea la directory se non esiste
+    os.makedirs(f'docs/{year}', exist_ok=True)
+    
+    # Salva la pagina
+    with open(f'docs/{year}/{month_name.lower()}.html', 'w', encoding='utf-8') as f:
+        f.write(html_template)
+
+def update_main_page(all_data):
+    years = sorted(all_data['year'].unique())
+    
+    html_content = '''
+    <!DOCTYPE html>
+    <html lang="it">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Zero Termico - Grafici Mensili</title>
+        <link rel="stylesheet" href="css/style.css">
+    </head>
+    <body>
+        <div class="container">
+            <h1>Zero Termico - Archivio Grafici</h1>
+    '''
+    
+    for year in years:
+        year_data = all_data[all_data['year'] == year]
+        months = sorted(year_data['month'].unique())
+        
+        html_content += f'''
+            <div class="year-section">
+                <h2>{year}</h2>
+                <div class="month-grid">
+        '''
+        
+        month_names = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                      'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+        
+        for month in months:
+            month_name = month_names[month - 1]
+            html_content += f'''
+                    <a href="{year}/{month_name.lower()}.html">{month_name}</a>
+            '''
+        
+        html_content += '''
+                </div>
+            </div>
+        '''
+    
+    html_content += '''
+        </div>
+    </body>
+    </html>
+    '''
+    
+    with open('docs/temp_graph.html', 'w', encoding='utf-8') as f:
+        f.write(html_content)
+
 def main():
     print("Inizio aggiornamento dati zero termico...")
     
@@ -71,9 +167,25 @@ def main():
         # Ordina
         df_combined = df_combined.sort_values(['year', 'month', 'date'])
         
-        # Salva
+        # Salva CSV principale
         print("Salvataggio dati aggiornati...")
         df_combined.to_csv('zero_termico_data.csv', index=False)
+        
+        # Genera pagine mensili
+        print("Generazione pagine mensili...")
+        for year in df_combined['year'].unique():
+            for month in df_combined['month'].unique():
+                monthly_data = df_combined[
+                    (df_combined['year'] == year) & 
+                    (df_combined['month'] == month)
+                ]
+                if not monthly_data.empty:
+                    generate_monthly_page(year, month, monthly_data)
+        
+        # Aggiorna pagina principale
+        print("Aggiornamento pagina principale...")
+        update_main_page(df_combined)
+        
         print("Aggiornamento completato con successo!")
     else:
         print("Nessun nuovo dato estratto.")
